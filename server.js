@@ -16,6 +16,7 @@ client.connect();
 client.on('err', err => console.log(err));
 
 
+
 const app = express();
 app.use(cors());
 
@@ -32,9 +33,32 @@ app.get('/weather', getWeather);
 
 app.get('/events', getEvents);
 
-//Error handler
+function handleError(err, res) {
+  if(res) res.status(500).send('Sorry something went wrong');
+}
+function lookup(options) {
+  const SQL = `SELECT * FROM ${options.tableName} WHERE location_id = $1;`;
+  const values = [options.location];
 
+  client.query(SQL, values)
+    .then(result => {
+      if(result.rowCount > 0) {
+        options.cacheHit(result);
+      } else{
+        options.cacheMiss();
+      }
+    })
+    .catch(error => handleError(error));
+}
 
+function deleteByLocationId(table, city) {
+  const SQL = `DELETE FROM ${table} WHERE location_id = ${city};`;
+  return client.query(SQL);
+}
+
+const timeOuts = {
+  weathers: 15 * 1000
+}
 // Helper Functions and handlers
 
 //location:
@@ -114,23 +138,60 @@ Location.prototype.save = function() {
 
 
 
-
 //events and weather - deal with later
+
+
 function getWeather(request, response) {
-  const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`
+  Weather.lookup({
+    tableName : Weather.tableName,
+    location: request.query.data.id,
 
-  return superagent.get(url)
-    .then(res => {
-      const weatherEntries = res.body.daily.data.map(day => {
-        return new Weather(day);
-      })
+    cacheHit : function (result) {
+      let ageOfResults = (Date.now() - result.rows[0].created_at);
+      if (ageOfResults > timeOuts.weathers) {
+        Weather.deleteByLocationId(Weather.tableName, request.query.data.id);
+        this.cacheMiss();
+      }else{
+        response.send(result.rows);
+      }
+    },
 
-      response.send(weatherEntries);
-    })
-    .catch(error => {
-      response.send(error);
-    });
+    cacheMiss: function() {
+      const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${request.query.data.latitude},${request.query.data.longitude}`
+
+      superagent.get(url)
+        .then(res => {
+          const weatherEntries = res.body.daily.data.map(day => {
+            const summary = new Weather(day);
+            summary.save(request.query.data.id);
+            return summary;
+          });
+          response.send(weatherEntries);
+          // return weatherEntries;
+        })
+        .catch(error => response.send(error));
+    }
+  });
 }
+
+function Weather(day) {
+  this.tableName = 'weathers';
+  this.forecast = day.summary;
+  this.time = new Date(day.time * 1000).toString().slice(0, 15);
+  this.created_at = Date.now();
+}
+Weather.tableName = 'weathers';
+Weather.lookup = lookup;
+Weather.deleteByLocationId = deleteByLocationId;
+
+Weather.prototype.save = function (ID) {
+  const SQL = `INSERT INTO weathers(forecast, time, location_ID, created_at) VALUES($1,$2,$3,$4)RETURNING id`;
+  const values = [this.forecast, this.time, ID, this.created_at];
+  client.query(SQL, values);
+};
+
+
+
 
 function getEvents(request, response) {
   const url = `https://www.eventbriteapi.com/v3/events/search?location.latitude=${request.query.data.latitude}&location.longitude=${request.query.data.longitude}&token=${process.env.EVENTBRITE_API_KEY}`
@@ -146,12 +207,6 @@ function getEvents(request, response) {
       response.send(err);
     });
 }
-
-function Weather(day) {
-  this.forecast = day.summary;
-  this.time = new Date(day.time * 1000).toString().slice(0, 15);
-}
-
 function Event(eventObj) {
   this.link = eventObj.url;
   this.name = eventObj.name.text;
