@@ -17,3 +17,16 @@ CREATE TABLE weathers (
     FOREIGN KEY (location_id) REFERENCES locations (id),
     created_at NUMERIC NOT NULL
   );
+
+
+CREATE TABLE events ( 
+    id SERIAL PRIMARY KEY, 
+    link VARCHAR(255),
+    name VARCHAR(255),
+    time VARCHAR(255), 
+    location_id INTEGER NOT NULL,
+    summary VARCHAR(255), 
+    FOREIGN KEY (location_id) REFERENCES locations (id)
+);
+
+

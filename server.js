@@ -194,25 +194,54 @@ Weather.prototype.save = function (ID) {
 
 
 function getEvents(request, response) {
-  const url = `https://www.eventbriteapi.com/v3/events/search?location.latitude=${request.query.data.latitude}&location.longitude=${request.query.data.longitude}&token=${process.env.EVENTBRITE_API_KEY}`
+  Event.lookup({
+    tableName : Event.tableName,
+    location: request.query.data.id,
 
-  return superagent.get(url)
-    .then(res => {
-      const eventEntries = res.body.events.map(eventObj => {
-        return new Event(eventObj);
-      })
-      response.send(eventEntries);
-    })
-    .catch(err => {
-      response.send(err);
-    });
+    cacheHit : function (result) {
+      let ageOfResults = (Date.now() - result.rows[0].created_at);
+      if (ageOfResults > timeOuts.events) {
+        Event.deleteByLocationId(Event.tableName, request.query.data.id);
+        this.cacheMiss();
+      }else{
+        response.send(result.rows);
+      }
+    },
+    cacheMiss: function() {
+      const url = `https://www.eventbriteapi.com/v3/events/search?location.latitude=${request.query.data.latitude}&location.longitude=${request.query.data.longitude}&token=${process.env.EVENTBRITE_API_KEY}`
+
+      superagent.get(url)
+        .then(res => {
+          const eventEntries = res.body.daily.data.map(day => {
+            const summary = new Event(day);
+            summary.save(request.query.data.id);
+            return summary;
+          });
+          response.send(eventEntries);
+        })
+        .catch(error => response.send(error));
+    }
+  });
 }
-function Event(eventObj) {
-  this.link = eventObj.url;
-  this.name = eventObj.name.text;
-  this.event_date = Date(eventObj.start.local).split(' ').slice(0, 4).join(' ');
-  this.summary = eventObj.summary;
+
+function Event(day) {
+  this.tableName = 'events';
+  this.link = day.url;
+  this.name = day.name.text;
+  this.time = Date(day.start.local).split(' ').slice(0, 4).join(' ');
+  this.summary = day.summary;
 }
+Event.tableName = 'events';
+Event.lookup = lookup;
+Event.deleteByLocationId = deleteByLocationId;
+
+Event.prototype.save = function(ID) {
+  const SQL = `INSERT INTO events(link, name, time, location_ID, summary) VALUES($1,$2,$3,$4,$5)RETURNING id`
+  const values = [this.link, this.name, this.time, ID, this.summary];
+  client.query(SQL, values);
+};
+
+
 
 // Make sure the server is listening for requests
 app.listen(PORT, () => console.log(`City Explorer is up on ${PORT}`));
