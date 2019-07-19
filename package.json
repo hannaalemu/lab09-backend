@@ -1,0 +1,27 @@
+{
+  "name": "lab09-backend",
+  "version": "1.0.0",
+  "description": "301 Lab 06-09, City Explorer",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hannaalemu/lab09-backend.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hannaalemu/lab09-backend/issues"
+  },
+  "homepage": "https://github.com/hannaalemu/lab09-backend#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^8.0.0",
+    "express": "^4.17.1",
+    "pg": "^7.11.0",
+    "superagent": "^5.1.0"
+  }
+}
