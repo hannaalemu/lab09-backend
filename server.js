@@ -276,8 +276,8 @@ Event.deleteByLocationId = deleteByLocationId;
 
 Event.prototype = {
   save: function (location_id) {
-    const SQL = `INSERT INTO ${this.tableName} (link, name, event_date, summary, created_at, location_id) VALUES ($1, $2, $3, $4, $5, $6);`;
-    const values = [this.link, this.name, this.event_date, this.summary, this.created_at, location_id];
+    const SQL = `INSERT INTO ${this.tableName} (link, name,time, summary, created_at, location_id) VALUES ($1, $2, $3, $4, $5, $6);`;
+    const values = [this.link, this.name, this.time, this.summary, this.created_at, location_id];
 
     client.query(SQL, values);
   }

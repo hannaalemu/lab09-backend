@@ -58,8 +58,8 @@ CREATE TABLE IF NOT EXISTS events (
   id SERIAL PRIMARY KEY, 
   link VARCHAR(255), 
   name VARCHAR(255), 
+  time CHAR(15), 
   summary VARCHAR(1000),
-  event_date CHAR(15), 
   created_at BIGINT,
   location_id INTEGER NOT NULL REFERENCES locations(id) 
 );
